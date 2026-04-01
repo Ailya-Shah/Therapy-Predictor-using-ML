@@ -43,6 +43,7 @@ Therapy-Predictor-using-ML/
 - **Source:** OSMI / Kaggle  
 - **Samples:** 1259  
 - **Features:** 27  
+- **Link:** https://www.kaggle.com/datasets/osmi/mental-health-in-tech-survey
 
 ### Target Variable  
 `treatment`

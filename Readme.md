@@ -62,6 +62,13 @@ Therapy-Predictor-using-ML/
 
 The entire workflow is built using **scikit-learn Pipelines** to ensure consistency and avoid data leakage.
 
+### Train/Test Split
+
+- 80/20 split with fixed `random_state=42`
+- **Stratified split** with `stratify=y` to preserve Yes/No class proportion in both train and test sets
+
+This improves fairness and reliability of evaluation by avoiding accidental class imbalance in one split.
+
 ### Preprocessing  
 
 **Numerical Data**
@@ -75,6 +82,15 @@ The entire workflow is built using **scikit-learn Pipelines** to ensure consiste
 Implemented using:
 - `Pipeline`
 - `ColumnTransformer`
+
+### Feature Cleanup Decisions
+
+Before dropping fields, the notebook inspects missingness/cardinality and then removes:
+- `Timestamp`
+- `comments`
+- `state`
+
+This keeps the model focused on cleaner predictive features.
 
 ---
 
@@ -121,6 +137,10 @@ Soft voting is enabled using `probability=True` in SVM.
 - PR-AUC  
 - Confusion Matrix  
 
+Notes:
+- **ROC-AUC** measures overall class-separation quality across thresholds.
+- **PR-AUC** focuses on positive-class performance (treatment seekers), which is important for this problem setting.
+
 ---
 
 ## Results  
@@ -164,6 +184,17 @@ Mental-Health-Classification.ipynb
 Run all cells from top to bottom to reproduce the full workflow and generate:
 ```
 best_model.joblib
+```
+
+The final trained soft-voting model is saved with:
+```python
+joblib.dump(voting_soft, "best_model.joblib")
+```
+
+You can later reload it without retraining:
+```python
+import joblib
+model = joblib.load("best_model.joblib")
 ```
 
 ---

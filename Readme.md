@@ -31,18 +31,20 @@ Therapy-Predictor-using-ML/
 ├── app.py
 ├── survey.csv
 ├── Mental-Health-Classification.ipynb
-├── confusion-matrix.png
-├── best_model.joblib
-├── model.pkl
+├── misc/
+│   └── confusion-matrix.png
+├── trained_models/
+│   ├── best_model.joblib
+│   └── model.pkl
 ├── README.md
 ```
 
 - `app.py` → Streamlit application for live prediction  
 - `survey.csv` → dataset used for training/testing  
 - `Mental-Health-Classification.ipynb` → full implementation (pipeline + models + results)  
-- `confusion-matrix.png` → final confusion matrix visualization  
-- `best_model.joblib` → primary saved final soft-voting model  
-- `model.pkl` → fallback model artifact used if `best_model.joblib` is unavailable  
+- `misc/confusion-matrix.png` → final confusion matrix visualization  
+- `trained_models/best_model.joblib` → primary saved final soft-voting model  
+- `trained_models/model.pkl` → fallback model artifact used if primary model is unavailable  
 - `README.md` → project documentation  
 
 ---
@@ -171,8 +173,8 @@ Notes:
 The app is designed to stay aligned with the trained model and current dataset.
 
 ### 1. Model Loading
-- Loads `best_model.joblib` first
-- Falls back to `model.pkl` if needed
+- Loads `trained_models/best_model.joblib` first
+- Falls back to `trained_models/model.pkl` if needed
 
 ### 2. Feature Schema Discovery
 - Infers expected input columns from the trained model object
@@ -226,7 +228,7 @@ The app is designed to stay aligned with the trained model and current dataset.
 
 ## Confusion Matrix
 
-![Confusion Matrix](confusion-matrix.png)
+![Confusion Matrix](misc/confusion-matrix.png)
 
 From the matrix:
 - True Negatives (TN): 101
@@ -257,7 +259,7 @@ Mental health prediction systems can assist in early detection of individuals ne
 This project stands out by emphasizing:
 - Fair evaluation with stratified splitting
 - Stronger metrics beyond accuracy (ROC-AUC and PR-AUC)
-- Reproducible deployment with a saved trained model (`best_model.joblib`)
+- Reproducible deployment with saved model artifacts in `trained_models/`
 
 ---
 
@@ -287,7 +289,7 @@ Mental-Health-Classification.ipynb
 
 Run all cells from top to bottom to reproduce the full workflow and generate:
 ```
-best_model.joblib
+trained_models/best_model.joblib
 ```
 
 Important:
@@ -296,13 +298,13 @@ Important:
 
 The final trained soft-voting model is saved with:
 ```python
-joblib.dump(voting_soft, "best_model.joblib")
+joblib.dump(voting_soft, "trained_models/best_model.joblib")
 ```
 
 You can later reload it without retraining:
 ```python
 import joblib
-model = joblib.load("best_model.joblib")
+model = joblib.load("trained_models/best_model.joblib")
 ```
 
 ---

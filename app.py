@@ -4,7 +4,9 @@ import joblib
 from pathlib import Path
 
 # Load model (prefer final notebook artifact)
-model_path = Path("best_model.joblib") if Path("best_model.joblib").exists() else Path("model.pkl")
+primary_model = Path("trained_models/best_model.joblib")
+fallback_model = Path("trained_models/model.pkl")
+model_path = primary_model if primary_model.exists() else fallback_model
 model = joblib.load(model_path)
 
 

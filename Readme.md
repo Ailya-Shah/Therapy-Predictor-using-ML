@@ -28,11 +28,15 @@ Therapy-Predictor-using-ML/
 │
 ├── survey.csv
 ├── Mental-Health-Classification.ipynb
+├── confusion-matrix.png
+├── best_model.joblib
 ├── README.md
 ```
 
 - `survey.csv` → dataset used for training/testing  
 - `Mental-Health-Classification.ipynb` → full implementation (pipeline + models + results)  
+- `confusion-matrix.png` → final confusion matrix visualization  
+- `best_model.joblib` → saved final soft-voting model  
 - `README.md` → project documentation  
 
 ---
@@ -105,6 +109,19 @@ Each model is wrapped inside a pipeline along with preprocessing.
 
 ---
 
+## Project Overview
+
+This project predicts whether individuals seek mental health treatment using machine learning models.
+
+### Models Used
+- Logistic Regression
+- Decision Tree
+- KNN
+- SVM
+- Voting Classifier
+
+---
+
 ## Hyperparameter Tuning  
 
 Basic tuning is done using `GridSearchCV`:
@@ -145,9 +162,31 @@ Notes:
 
 ## Results  
 
+| Model | Accuracy |
+|------|--------|
+| Logistic Regression | 70.6% |
+| Decision Tree | 71.0% |
+| KNN | 71.4% |
+| SVM | 74.6% |
+| Voting (Soft) | 74.6% |
+
 - **Best Individual Model:** SVM (~74.6% accuracy)  
 - **Voting Classifier:** similar or slightly improved performance  
 - **Soft Voting > Hard Voting**  
+
+---
+
+## Confusion Matrix
+
+![Confusion Matrix](confusion-matrix.png)
+
+From the matrix:
+- True Negatives (TN): 101
+- False Positives (FP): 28
+- False Negatives (FN): 36
+- True Positives (TP): 87
+
+This confirms solid overall performance, while also showing that reducing false negatives should remain a priority.
 
 ---
 
@@ -157,6 +196,20 @@ Notes:
 - SVM performs well with high-dimensional encoded data  
 - Decision Tree tends to overfit if not controlled  
 - False negatives are important in this problem (missed treatment cases)  
+
+### Key Insight
+False negatives are critical in mental health prediction and should be minimized.
+
+---
+
+## Why This Matters
+
+Mental health prediction systems can assist in early detection of individuals needing support, reducing untreated psychological conditions.
+
+This project stands out by emphasizing:
+- Fair evaluation with stratified splitting
+- Stronger metrics beyond accuracy (ROC-AUC and PR-AUC)
+- Reproducible deployment with a saved trained model (`best_model.joblib`)
 
 ---
 

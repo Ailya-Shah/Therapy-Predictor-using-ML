@@ -117,6 +117,8 @@ Soft voting is enabled using `probability=True` in SVM.
 - Precision  
 - Recall  
 - F1 Score  
+- ROC-AUC  
+- PR-AUC  
 - Confusion Matrix  
 
 ---
@@ -148,7 +150,7 @@ git clone https://github.com/Ailya-Shah/Therapy-Predictor-using-ML.git
 cd Therapy-Predictor-using-ML
 
 # install dependencies
-pip install pandas numpy scikit-learn matplotlib
+pip install pandas numpy scikit-learn matplotlib jupyter joblib
 
 # run notebook
 jupyter notebook
@@ -157,6 +159,11 @@ jupyter notebook
 Open:
 ```
 Mental-Health-Classification.ipynb
+```
+
+Run all cells from top to bottom to reproduce the full workflow and generate:
+```
+best_model.joblib
 ```
 
 ---
@@ -168,6 +175,8 @@ Mental-Health-Classification.ipynb
 - numpy  
 - scikit-learn  
 - matplotlib  
+- jupyter  
+- joblib  
 
 ---
 

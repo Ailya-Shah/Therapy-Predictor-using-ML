@@ -19,6 +19,8 @@ This project implements a complete machine learning pipeline to predict whether 
 
 The focus of this project is not just model accuracy, but building a **clean, reproducible pipeline** that integrates preprocessing, training, and evaluation in a structured way.
 
+It also includes a **Streamlit web application** that loads the trained model and collects user inputs dynamically for real-time prediction.
+
 ---
 
 ## Repository Structure  
@@ -26,17 +28,21 @@ The focus of this project is not just model accuracy, but building a **clean, re
 ```
 Therapy-Predictor-using-ML/
 │
+├── app.py
 ├── survey.csv
 ├── Mental-Health-Classification.ipynb
 ├── confusion-matrix.png
 ├── best_model.joblib
+├── model.pkl
 ├── README.md
 ```
 
+- `app.py` → Streamlit application for live prediction  
 - `survey.csv` → dataset used for training/testing  
 - `Mental-Health-Classification.ipynb` → full implementation (pipeline + models + results)  
 - `confusion-matrix.png` → final confusion matrix visualization  
-- `best_model.joblib` → saved final soft-voting model  
+- `best_model.joblib` → primary saved final soft-voting model  
+- `model.pkl` → fallback model artifact used if `best_model.joblib` is unavailable  
 - `README.md` → project documentation  
 
 ---
@@ -160,6 +166,48 @@ Notes:
 
 ---
 
+## Streamlit App Architecture (`app.py`)
+
+The app is designed to stay aligned with the trained model and current dataset.
+
+### 1. Model Loading
+- Loads `best_model.joblib` first
+- Falls back to `model.pkl` if needed
+
+### 2. Feature Schema Discovery
+- Infers expected input columns from the trained model object
+- Ensures the app uses the same feature structure as training
+
+### 3. Reference Data Preparation
+- Reads `survey.csv`
+- Applies the same drop logic used in training (`Timestamp`, `comments`, `state`)
+- Uses this cleaned data to infer valid category labels for dropdown inputs
+
+### 4. Categorical Label Normalization
+- Normalizes known label variants (for example gender shorthand like `M`/`F`)
+- Prevents duplicated/noisy options in UI controls
+
+### 5. Dynamic Form Builder
+- Renders form fields for all expected model features
+- Uses:
+	- numeric input for `Age`
+	- dropdowns for categorical columns using inferred labels
+	- safe defaults for selected fields (such as `no_employees` defaulting to `26-100`)
+
+### 6. Prediction and Confidence
+- Builds a one-row dataframe with exact expected column order
+- Runs:
+	- `model.predict(...)` for class
+	- `model.predict_proba(...)` for confidence score
+- Displays prediction outcome + probability in the app
+
+### Why This App Design Is Strong
+- Reduces train/inference mismatch risk
+- Keeps UI options consistent with real dataset labels
+- Improves practical reliability compared to hardcoded 5-feature input forms
+
+---
+
 ## Results  
 
 | Model | Accuracy |
@@ -223,10 +271,13 @@ git clone https://github.com/Ailya-Shah/Therapy-Predictor-using-ML.git
 cd Therapy-Predictor-using-ML
 
 # install dependencies
-pip install pandas numpy scikit-learn matplotlib jupyter joblib
+pip install pandas numpy scikit-learn matplotlib jupyter joblib streamlit
 
 # run notebook
 jupyter notebook
+
+# run streamlit app
+streamlit run app.py
 ```
 
 Open:
@@ -238,6 +289,10 @@ Run all cells from top to bottom to reproduce the full workflow and generate:
 ```
 best_model.joblib
 ```
+
+Important:
+- Use `streamlit run app.py` for the web app.
+- Running `python app.py` shows bare-mode warnings and is not the intended Streamlit execution mode.
 
 The final trained soft-voting model is saved with:
 ```python
@@ -261,6 +316,7 @@ model = joblib.load("best_model.joblib")
 - matplotlib  
 - jupyter  
 - joblib  
+- streamlit
 
 ---
 

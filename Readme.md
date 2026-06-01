@@ -34,6 +34,7 @@ Therapy-Predictor-using-ML/
 ├── trained_models/
 │   └── best_model.joblib
 ├── README.md
+├── requirements.txt
 ├── survey_cleaned.csv     # cleaned data (ages clipped, gender normalized, junk columns dropped)
 ```
 

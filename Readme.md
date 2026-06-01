@@ -7,23 +7,21 @@
 
 ---
 
-##  Author  
-**Ailya Zainab**  
-BSDS-2A  
+## Author
+**Ailya Zainab**
+BSDS-2A
 
 ---
 
-## Overview  
+## Overview
 
-This project implements a complete machine learning pipeline to predict whether an individual seeks mental health treatment based on workplace and personal factors.
+This project implements a complete machine learning pipeline to predict whether an individual seeks mental health treatment, based on workplace and personal factors from the OSMI *Mental Health in Tech* survey.
 
-The focus of this project is not just model accuracy, but building a **clean, reproducible pipeline** that integrates preprocessing, training, and evaluation in a structured way.
-
-It also includes a **Streamlit web application** that loads the trained model and collects user inputs dynamically for real-time prediction.
+The focus is not just accuracy, but a **clean, reproducible, leakage-aware pipeline** — including honest data-quality cleanup and an explicit check of whether the strongest feature is leaking the answer. A **Streamlit web app** loads the trained model and collects user inputs dynamically for real-time prediction.
 
 ---
 
-## Repository Structure  
+## Repository Structure
 
 ```
 Therapy-Predictor-using-ML/
@@ -34,311 +32,172 @@ Therapy-Predictor-using-ML/
 ├── misc/
 │   └── confusion-matrix.png
 ├── trained_models/
-│   ├── best_model.joblib
-│   └── model.pkl
+│   └── best_model.joblib
 ├── README.md
 ```
 
-- `app.py` → Streamlit application for live prediction  
-- `survey.csv` → dataset used for training/testing  
-- `Mental-Health-Classification.ipynb` → full implementation (pipeline + models + results)  
-- `misc/confusion-matrix.png` → final confusion matrix visualization  
-- `trained_models/best_model.joblib` → primary saved final soft-voting model  
-- `trained_models/model.pkl` → fallback model artifact used if primary model is unavailable  
-- `README.md` → project documentation  
+- `app.py` → Streamlit application for live prediction
+- `survey.csv` → dataset used for training/testing
+- `Mental-Health-Classification.ipynb` → full implementation (cleaning + pipeline + models + leakage check + results)
+- `misc/confusion-matrix.png` → final confusion matrix
+- `trained_models/best_model.joblib` → saved soft-voting model
+- `README.md` → project documentation
 
 ---
 
-## Dataset  
+## Dataset
 
-- **Name:** Mental Health in Tech Survey  
-- **Source:** OSMI / Kaggle  
-- **Samples:** 1259  
-- **Features:** 27  
+- **Name:** Mental Health in Tech Survey
+- **Source:** OSMI / Kaggle
+- **Samples:** 1259 (≈1251 after age cleanup)
+- **Features:** 27
 - **Link:** https://www.kaggle.com/datasets/osmi/mental-health-in-tech-survey
 
-### Target Variable  
-`treatment`
+### Target Variable
+`treatment` — `1` = sought treatment, `0` = did not.
 
-- `1` → Yes (sought treatment)  
-- `0` → No (did not seek treatment)  
-
-### Notes  
-- Mix of numerical and categorical features  
-- Missing values present (handled in pipeline)  
-- Some noisy values (e.g., unrealistic ages)  
+### Known data-quality issues (and how they're handled)
+This is real survey data, and it's messy in specific ways the pipeline addresses up front:
+- **`Age`** contains impossible values (negative ages and values in the billions). Rows outside a plausible **18–80** band are removed (~8 rows).
+- **`Gender`** is free-text with ~49 variants (`M`, `male`, `Cis Male`, `woman`, …). These are normalized to **Male / Female / Other**.
+- **Missing values** in other fields are imputed inside the pipeline (mean for numeric, most-frequent for categorical).
 
 ---
 
-## Pipeline Design  
+## Pipeline Design
 
-The entire workflow is built using **scikit-learn Pipelines** to ensure consistency and avoid data leakage.
+The workflow is built with **scikit-learn Pipelines** so all fitting (imputation, scaling, encoding) happens inside cross-validation — no data leakage from preprocessing.
 
 ### Train/Test Split
+- 80/20 split, fixed `random_state=42`
+- **Stratified** (`stratify=y`) to preserve the Yes/No class balance in both sets
 
-- 80/20 split with fixed `random_state=42`
-- **Stratified split** with `stratify=y` to preserve Yes/No class proportion in both train and test sets
+### Preprocessing
+| Numerical | Categorical |
+|---|---|
+| Mean imputation | Most-frequent imputation |
+| Standard scaling | One-hot encoding (`handle_unknown="ignore"`) |
 
-This improves fairness and reliability of evaluation by avoiding accidental class imbalance in one split.
+Implemented with `Pipeline` + `ColumnTransformer`.
 
-### Preprocessing  
-
-**Numerical Data**
-- Mean imputation  
-- Standard scaling  
-
-**Categorical Data**
-- Most frequent imputation  
-- One-hot encoding  
-
-Implemented using:
-- `Pipeline`
-- `ColumnTransformer`
-
-### Feature Cleanup Decisions
-
-Before dropping fields, the notebook inspects missingness/cardinality and then removes:
-- `Timestamp`
-- `comments`
-- `state`
-
-This keeps the model focused on cleaner predictive features.
+### Columns dropped before modelling
+`Timestamp`, `comments`, `state` — high-missingness or non-predictive identifiers.
 
 ---
 
-## Models Implemented  
+## Feature-validity check: is `work_interfere` leaking?
 
-- Logistic Regression  
-- Decision Tree  
-- K-Nearest Neighbors (KNN)  
-- Support Vector Machine (SVM)  
+`work_interfere` asks whether a mental health condition interferes with work — which partly **presupposes a condition** and is closely tied to the outcome. Rather than assume, the notebook **re-trains the model without it** and compares:
 
-Each model is wrapped inside a pipeline along with preprocessing.
+| Variant | Accuracy | Recall | ROC-AUC |
+|---|---|---|---|
+| **With** `work_interfere` | ~0.75 | ~0.72 | ~0.85 |
+| **Without** `work_interfere` | ~0.73 | ~0.74 | ~0.79 |
+
+**Finding:** removing it lowers ROC-AUC modestly and accuracy by ~2 points, but the model does **not** collapse, and recall actually holds up. So `work_interfere` is the single most predictive field while being partly a proxy for the outcome — reported transparently rather than hidden.
 
 ---
 
-## Project Overview
+## Models Implemented
 
-This project predicts whether individuals seek mental health treatment using machine learning models.
-
-### Models Used
 - Logistic Regression
 - Decision Tree
-- KNN
-- SVM
-- Voting Classifier
+- K-Nearest Neighbors (KNN)
+- Support Vector Machine (SVM)
+- **Voting Classifier** (hard + soft)
+
+Each is wrapped in a pipeline with the shared preprocessor.
+
+### Hyperparameter Tuning (`GridSearchCV`, 5-fold)
+- Logistic Regression → `C`
+- Decision Tree → `max_depth`
+- KNN → `n_neighbors`
+- SVM → `C`, `kernel`
+
+### Ensemble
+- **Hard voting** — majority decision
+- **Soft voting** — probability averaging (SVM uses `probability=True`); soft voting is the final saved model.
 
 ---
 
-## Hyperparameter Tuning  
+## Evaluation Metrics
 
-Basic tuning is done using `GridSearchCV`:
+Accuracy · Precision · Recall · F1 · **ROC-AUC** · **PR-AUC** · Confusion Matrix
 
-- Logistic Regression → `C`  
-- Decision Tree → `max_depth`  
-- KNN → `n_neighbors`  
-- SVM → `kernel`, `C`  
+- **ROC-AUC** measures class-separation across thresholds.
+- **PR-AUC** focuses on the positive (treatment-seeking) class — the more relevant view here, since **missing a treatment case (false negative) is the costlier error.**
 
 ---
 
-## Ensemble Learning  
+## Results
 
-A **Voting Classifier** is used to combine predictions:
+| Model | Accuracy | ROC-AUC |
+|------|--------|--------|
+| Logistic Regression | ~0.75 | ~0.83 |
+| Decision Tree | ~0.74 | ~0.80 |
+| KNN | ~0.71 | ~0.76 |
+| SVM | ~0.75 | ~0.84 |
+| **Voting (Soft)** | **~0.77** | **~0.85** |
 
-- **Hard Voting** → majority decision  
-- **Soft Voting** → probability averaging  
+- **Best individual model:** SVM
+- **Soft-voting ensemble** edges out the individual models on accuracy and ROC-AUC, and is the saved final model.
+- *(Run the notebook for exact figures; values vary slightly with library versions.)*
 
-Soft voting is enabled using `probability=True` in SVM.
-
----
-
-## Evaluation Metrics  
-
-- Accuracy  
-- Precision  
-- Recall  
-- F1 Score  
-- ROC-AUC  
-- PR-AUC  
-- Confusion Matrix  
-
-Notes:
-- **ROC-AUC** measures overall class-separation quality across thresholds.
-- **PR-AUC** focuses on positive-class performance (treatment seekers), which is important for this problem setting.
-
----
-
-## Streamlit App Architecture (`app.py`)
-
-The app is designed to stay aligned with the trained model and current dataset.
-
-### 1. Model Loading
-- Loads `trained_models/best_model.joblib` first
-- Falls back to `trained_models/model.pkl` if needed
-
-### 2. Feature Schema Discovery
-- Infers expected input columns from the trained model object
-- Ensures the app uses the same feature structure as training
-
-### 3. Reference Data Preparation
-- Reads `survey.csv`
-- Applies the same drop logic used in training (`Timestamp`, `comments`, `state`)
-- Uses this cleaned data to infer valid category labels for dropdown inputs
-
-### 4. Categorical Label Normalization
-- Normalizes known label variants (for example gender shorthand like `M`/`F`)
-- Prevents duplicated/noisy options in UI controls
-
-### 5. Dynamic Form Builder
-- Renders form fields for all expected model features
-- Uses:
-	- numeric input for `Age`
-	- dropdowns for categorical columns using inferred labels
-	- safe defaults for selected fields (such as `no_employees` defaulting to `26-100`)
-
-### 6. Prediction and Confidence
-- Builds a one-row dataframe with exact expected column order
-- Runs:
-	- `model.predict(...)` for class
-	- `model.predict_proba(...)` for confidence score
-- Displays prediction outcome + probability in the app
-
-### Why This App Design Is Strong
-- Reduces train/inference mismatch risk
-- Keeps UI options consistent with real dataset labels
-- Improves practical reliability compared to hardcoded 5-feature input forms
-
----
-
-## Results  
-
-| Model | Accuracy |
-|------|--------|
-| Logistic Regression | 70.6% |
-| Decision Tree | 71.0% |
-| KNN | 71.4% |
-| SVM | 74.6% |
-| Voting (Soft) | 74.6% |
-
-- **Best Individual Model:** SVM (~74.6% accuracy)  
-- **Voting Classifier:** similar or slightly improved performance  
-- **Soft Voting > Hard Voting**  
-
----
-
-## Confusion Matrix
+### Confusion Matrix
 
 ![Confusion Matrix](misc/confusion-matrix.png)
 
-From the matrix:
-- True Negatives (TN): 101
-- False Positives (FP): 28
-- False Negatives (FN): 36
-- True Positives (TP): 87
-
-This confirms solid overall performance, while also showing that reducing false negatives should remain a priority.
+False negatives (individuals who needed treatment but weren't flagged) are the priority error to reduce in this problem setting.
 
 ---
 
-## Insights  
+## Streamlit App (`app.py`)
 
-- Different models capture different patterns → combining them improves stability  
-- SVM performs well with high-dimensional encoded data  
-- Decision Tree tends to overfit if not controlled  
-- False negatives are important in this problem (missed treatment cases)  
+The app is designed to stay aligned with the trained model and dataset:
 
-### Key Insight
-False negatives are critical in mental health prediction and should be minimized.
+1. **Model loading** — loads `trained_models/best_model.joblib`.
+2. **Feature schema discovery** — infers expected input columns from the fitted model, so the form matches training exactly (no hardcoded feature list).
+3. **Reference data prep** — reads `survey.csv`, applies the same drop logic, and derives valid dropdown labels from real data.
+4. **Categorical normalization** — collapses noisy labels (e.g. gender shorthand) for clean UI options.
+5. **Dynamic form** — numeric input for `Age`, dropdowns for categoricals, sensible defaults.
+6. **Prediction + confidence** — `predict` for class, `predict_proba` for probability.
 
----
-
-## Why This Matters
-
-Mental health prediction systems can assist in early detection of individuals needing support, reducing untreated psychological conditions.
-
-This project stands out by emphasizing:
-- Fair evaluation with stratified splitting
-- Stronger metrics beyond accuracy (ROC-AUC and PR-AUC)
-- Reproducible deployment with saved model artifacts in `trained_models/`
+**Why this matters:** inferring the schema from the model (rather than hardcoding) reduces train/inference mismatch — a common and silent source of deployment bugs.
 
 ---
 
-##  How to Run  
+## How to Run
 
 ```bash
-# clone repo
 git clone https://github.com/Ailya-Shah/Therapy-Predictor-using-ML.git
-
-# go into folder
 cd Therapy-Predictor-using-ML
-
-# install dependencies
 pip install pandas numpy scikit-learn matplotlib jupyter joblib streamlit
 
-# run notebook
-jupyter notebook
+# reproduce the full workflow (cleaning -> models -> leakage check -> saved model)
+jupyter notebook Mental-Health-Classification.ipynb   # run all cells
 
-# run streamlit app
+# launch the web app
 streamlit run app.py
 ```
 
-Open:
-```
-Mental-Health-Classification.ipynb
-```
-
-Run all cells from top to bottom to reproduce the full workflow and generate:
-```
-trained_models/best_model.joblib
-```
-
-Important:
-- Use `streamlit run app.py` for the web app.
-- Running `python app.py` shows bare-mode warnings and is not the intended Streamlit execution mode.
-
-The final trained soft-voting model is saved with:
-```python
-joblib.dump(voting_soft, "trained_models/best_model.joblib")
-```
-
-You can later reload it without retraining:
-```python
-import joblib
-model = joblib.load("trained_models/best_model.joblib")
-```
+> Use `streamlit run app.py` (not `python app.py`). Running all notebook cells regenerates `trained_models/best_model.joblib`.
 
 ---
 
-## Requirements  
+## Limitations & Future Work
 
-- Python 3.x  
-- pandas  
-- numpy  
-- scikit-learn  
-- matplotlib  
-- jupyter  
-- joblib  
-- streamlit
+- **`work_interfere` is partly a proxy for the outcome** — reported transparently; a stricter version of the project would model treatment-seeking from purely *workplace-environment* features only.
+- **Modest sample size (~1.25k)** and **self-reported survey data** limit generalisation; this is a tech-industry, largely Western sample.
+- **Class signal is limited** — ~75–77% accuracy is honest for this dataset; chasing higher numbers usually means reintroducing leakage.
+- **Future work:** threshold tuning to prioritise recall (reduce false negatives), feature engineering, and calibration of predicted probabilities.
 
 ---
 
-## Conclusion  
+## Notes
 
-This project demonstrates a complete ML pipeline for a real-world classification task.
+- All preprocessing happens inside pipelines — no leakage from imputation/scaling/encoding.
+- Data-quality cleanup (ages, gender) is explicit and reproducible.
+- The strongest feature is stress-tested for leakage rather than taken at face value.
+- Fully reproducible: run the notebook top to bottom.
 
-- Pipeline ensures reproducibility  
-- SVM gave best standalone results  
-- Voting classifier improved overall robustness  
-
-The project highlights the importance of combining models and handling mixed-type data effectively.
-
----
-
-## Notes  
-
-- All preprocessing is done inside pipelines  
-- No data leakage  
-- Fully reproducible workflow  
-- Developed as part of a Machine Learning lab  
-
----
+*Developed as part of a Machine Learning lab.*

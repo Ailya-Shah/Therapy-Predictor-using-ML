@@ -34,6 +34,7 @@ Therapy-Predictor-using-ML/
 ├── trained_models/
 │   └── best_model.joblib
 ├── README.md
+├── survey_cleaned.csv     # cleaned data (ages clipped, gender normalized, junk columns dropped)
 ```
 
 - `app.py` → Streamlit application for live prediction
